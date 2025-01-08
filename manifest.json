@@ -14,5 +14,8 @@
     "options_ui": {
     "page": "options.html",
     "open_in_tab": true
-  }
+    },
+    "icons": {
+        "128": "icon-extender.png"
+    }
   }
