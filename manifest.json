@@ -4,9 +4,10 @@
     "version": "0.1.0",
     "description": "OneLoginのポータル画面においてCompany Tabのタブを初期表示することができます。個人タブの有無の設定が必要です。デフォルトでは個人タブがない設定となります。",
     "content_scripts": [{
-    "matches": ["https://*.onelogin.com/portal"],
-    "js": [
-      "portal-01.js"
-    ]
+        "matches": ["https://*.onelogin.com/portal"],
+        "run_at": "document_idle",
+        "js": [
+          "portal-01.js"
+        ]
   }]
   }
