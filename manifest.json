@@ -1,7 +1,7 @@
 {
     "manifest_version": 3,
     "name": "OneLogin Portal Extender",
-    "version": "0.1.1",
+    "version": "1.0.1",
     "description": "OneLoginのポータル画面においてCompany Tabのタブを初期表示することができます。個人タブの有無の設定が必要です。デフォルトでは個人タブがない設定となります。",
     "content_scripts": [{
         "matches": ["https://*.onelogin.com/portal"],
