@@ -26,11 +26,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: onelogin-portal-extender
-          path: dist/*.zip
+          path: dist/onelogin-portal-extender-v*.zip
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*.zip
+          files: dist/onelogin-portal-extender-v*.zip
           generate_release_notes: true
