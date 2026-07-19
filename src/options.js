@@ -1,20 +1,118 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("options-form");
-    const status = document.getElementById("status");
-  
-    // 保存済み設定をフォームに反映
-    chrome.storage.sync.get("tabOption", (data) => {
-      const selectedOption = data.tabOption || "1"; // デフォルトは"1"
-      form.tab.value = selectedOption;
+// OneLogin Portal Extender
+// Copyright (C) 2025-2026 scr-malu
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version. See the LICENSE file for details.
+
+// オプション画面
+const DEFAULTS = {
+  tabMode: "company",
+  tabName: "",
+  domains: "",
+  pinnedApps: [],
+};
+
+const FREE_INPUT = "__free__";
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const form = document.getElementById("options-form");
+  const status = document.getElementById("status");
+  const tabSelect = document.getElementById("tab-select");
+  const tabNameInput = document.getElementById("tab-name");
+  const pinnedList = document.getElementById("pinned-list");
+  const pinnedEmpty = document.getElementById("pinned-empty");
+
+  const settings = await chrome.storage.sync.get(DEFAULTS);
+  const { tabLabels = [] } = await chrome.storage.local.get("tabLabels");
+
+  // 廃止したサブタブ指定の設定が残っていれば掃除する
+  chrome.storage.sync.remove("subTabName");
+  chrome.storage.local.remove("subTabLabels");
+
+  // タブ名のプルダウン(ポータル閲覧時にキャッシュした実際のタブ名 + 直接入力)
+  setupTabPicker(tabSelect, tabNameInput, tabLabels, settings.tabName);
+
+  form.tabMode.value = settings.tabMode;
+  form.domains.value = settings.domains;
+  syncControlStates();
+
+  renderPinned(settings.pinnedApps);
+
+  form.addEventListener("change", syncControlStates);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    await chrome.storage.sync.set({
+      tabMode: form.tabMode.value,
+      tabName: pickedValue(tabSelect, tabNameInput),
+      domains: form.domains.value.trim(),
     });
-  
-    // フォーム送信時の処理
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const selectedOption = form.tab.value;
-      chrome.storage.sync.set({ tabOption: selectedOption }, () => {
-        status.textContent = "設定が保存されました！";
-        setTimeout(() => status.textContent = "", 2000); // ステータスメッセージを消す
-      });
-    });
+    status.textContent = "設定を保存しました。";
+    setTimeout(() => (status.textContent = ""), 2000);
   });
+
+  // select と直接入力欄のペアを構築する
+  function setupTabPicker(select, input, cachedLabels, savedValue) {
+    const candidates = [...cachedLabels];
+    if (savedValue && !candidates.includes(savedValue)) {
+      candidates.unshift(savedValue);
+    }
+    for (const label of candidates) {
+      const option = document.createElement("option");
+      option.value = label;
+      option.textContent = label;
+      select.appendChild(option);
+    }
+    const freeOption = document.createElement("option");
+    freeOption.value = FREE_INPUT;
+    freeOption.textContent = "その他（直接入力）";
+    select.appendChild(freeOption);
+
+    if (savedValue) {
+      select.value = savedValue; // candidates に必ず含まれている
+    } else {
+      select.value = candidates.length > 0 ? candidates[0] : FREE_INPUT;
+    }
+  }
+
+  function pickedValue(select, input) {
+    return select.value === FREE_INPUT ? input.value.trim() : select.value;
+  }
+
+  function syncControlStates() {
+    const customEnabled = form.tabMode.value === "custom";
+    tabSelect.disabled = !customEnabled;
+    tabNameInput.disabled = !customEnabled;
+    // 直接入力欄は「その他」を選んだときだけ表示する
+    tabNameInput.style.display = tabSelect.value === FREE_INPUT ? "" : "none";
+  }
+
+  function renderPinned(apps) {
+    pinnedList.replaceChildren();
+    pinnedEmpty.style.display = apps.length === 0 ? "" : "none";
+    for (const app of apps) {
+      const li = document.createElement("li");
+      if (app.icon) {
+        const img = document.createElement("img");
+        img.src = app.icon;
+        img.alt = "";
+        li.appendChild(img);
+      }
+      const name = document.createElement("span");
+      name.textContent = app.name;
+      li.appendChild(name);
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "削除";
+      removeBtn.addEventListener("click", async () => {
+        const remaining = apps.filter((a) => a.id !== app.id);
+        await chrome.storage.sync.set({ pinnedApps: remaining });
+        renderPinned(remaining);
+      });
+      li.appendChild(removeBtn);
+      pinnedList.appendChild(li);
+    }
+  }
+});
