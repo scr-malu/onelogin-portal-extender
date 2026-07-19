@@ -1,21 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <title>OneLogin Portal Extender - オプション設定</title>
   <meta charset="UTF-8">
+  <style>
+    body {
+      font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Meiryo", sans-serif;
+      max-width: 640px;
+      margin: 24px auto;
+      padding: 0 16px;
+      color: #333;
+      line-height: 1.7;
+    }
+    h1 { font-size: 20px; }
+    section {
+      margin: 20px 0;
+      padding: 16px;
+      border: 1px solid #e0e3e8;
+      border-radius: 8px;
+    }
+    h2 { font-size: 15px; margin: 0 0 8px; }
+    label { display: block; margin: 4px 0; }
+    .hint { font-size: 12px; color: #777; margin: 4px 0 0; }
+    input[type="text"], textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border: 1px solid #c8ccd4;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    input[type="text"]:disabled { background: #f0f1f3; }
+    #tab-name { margin-left: 24px; width: calc(100% - 24px); }
+    textarea { height: 72px; resize: vertical; }
+    button {
+      padding: 6px 20px;
+      border: 1px solid #c8ccd4;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    button:hover { border-color: #f5a623; }
+    #pinned-list { list-style: none; margin: 0; padding: 0; }
+    #pinned-list li {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+    }
+    #pinned-list img { width: 16px; height: 16px; object-fit: contain; }
+    #pinned-list button { padding: 2px 10px; font-size: 12px; }
+    #status { color: green; min-height: 1.5em; }
+  </style>
 </head>
 <body>
-  <h1>オプション設定</h1>
+  <h1>OneLogin Portal Extender 設定</h1>
+
   <form id="options-form">
-    <label>
-      <input type="radio" name="tab" value="1" checked> 個人タブなし
-    </label><br>
-    <label>
-      <input type="radio" name="tab" value="2"> 個人タブあり
-    </label><br>
+    <section>
+      <h2>初期表示タブ</h2>
+      <label>
+        <input type="radio" name="tabMode" value="company" checked>
+        会社タブを自動検出して表示する（推奨）
+      </label>
+      <label>
+        <input type="radio" name="tabMode" value="custom">
+        タブ名を指定する
+      </label>
+      <input type="text" id="tab-name" list="tab-candidates" placeholder="表示したいタブ名を入力">
+      <datalist id="tab-candidates"></datalist>
+      <label>
+        <input type="radio" name="tabMode" value="off">
+        切り替えない（OneLogin標準のまま）
+      </label>
+      <p class="hint">一度ポータル画面を開くと、タブ名の入力候補が表示されるようになります。</p>
+    </section>
+
+    <section>
+      <h2>対象ドメイン</h2>
+      <textarea name="domains" placeholder="example.onelogin.com&#10;（1行に1つ。サブドメインのみでも可）"></textarea>
+      <p class="hint">空欄の場合はすべての *.onelogin.com で動作します。複数テナントを利用している場合に、特定のテナントだけで動作させたいときに設定してください。</p>
+    </section>
+
+    <section>
+      <h2>ピン留めアプリ</h2>
+      <p class="hint">ポータル画面でアプリにマウスを乗せると表示される ★ ボタンでピン留めできます。ピン留めしたアプリはポータル最上部のバーに表示されます。</p>
+      <ul id="pinned-list"></ul>
+      <p id="pinned-empty" class="hint">ピン留めされたアプリはありません。</p>
+    </section>
+
     <button type="submit">保存</button>
+    <p id="status"></p>
   </form>
-  <p id="status" style="color: green;"></p>
+
   <script src="options.js"></script>
 </body>
 </html>

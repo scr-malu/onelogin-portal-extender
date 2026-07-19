@@ -1,0 +1,72 @@
+/* OneLogin Portal Extender - ポータル画面に注入するスタイル */
+
+/* アプリタイル右上の★(ピン留め)ボタン。タイルにマウスを乗せたときだけ表示する */
+.olpe-star {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 100;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #c8ccd4;
+  border-radius: 50%;
+  background: #fff;
+  color: #b8bcc4;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+a[href*="/launch/"]:hover .olpe-star,
+.olpe-star:focus-visible,
+.olpe-star.olpe-pinned {
+  opacity: 1;
+}
+
+.olpe-star.olpe-pinned {
+  color: #f5a623;
+  border-color: #f5a623;
+}
+
+/* ページ最上部のピン留めアプリバー */
+#olpe-pinned-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: #f7f8fa;
+  border-bottom: 1px solid #e0e3e8;
+  font-family: -apple-system, "Segoe UI", "Hiragino Sans", "Meiryo", sans-serif;
+  font-size: 13px;
+}
+
+#olpe-pinned-bar .olpe-pin-label {
+  font-weight: bold;
+  color: #555;
+}
+
+.olpe-pin-app {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid #d8dbe0;
+  border-radius: 16px;
+  background: #fff;
+  color: #333;
+  text-decoration: none;
+}
+
+.olpe-pin-app:hover {
+  border-color: #f5a623;
+}
+
+.olpe-pin-app img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
