@@ -41,4 +41,10 @@ GitHub Actions でも自動ビルドされます。`v*` 形式のタグ（例: `
 
 少しでも皆様のお役に立てば幸いです。
 
+## ライセンス
+
+Copyright (C) 2025-2026 scr-malu
+
+本ソフトウェアは GNU General Public License v3.0 (GPL-3.0) のもとで公開されているフリーソフトウェアです。ライセンスの全文は [LICENSE](LICENSE) をご覧ください。
+
 ＊OneLoginの名称及びロゴは、One Identity, LLC.の商標または登録商標です。

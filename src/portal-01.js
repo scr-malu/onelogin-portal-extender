@@ -1,4 +1,12 @@
-// OneLogin Portal Extender - コンテンツスクリプト
+// OneLogin Portal Extender
+// Copyright (C) 2025-2026 scr-malu
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version. See the LICENSE file for details.
+
+// コンテンツスクリプト
 // document_start で実行され、設定に応じて以下を行う:
 //   - 初期表示タブの自動切り替え(タブ名の自動検出 or 指定タブ名でマッチ)
 //   - 切り替え完了までページを隠すことによるチラつき防止
