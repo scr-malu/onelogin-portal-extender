@@ -31,6 +31,10 @@ OneLogin Portal Extender は、OneLoginのポータル画面（*.onelogin.com/po
 
 少しでも皆様のお役に立てば幸いです。
 
+## プライバシー
+
+本拡張機能は、利用者の情報を外部に一切送信しません。詳細は [プライバシーポリシー](PRIVACY.md) をご覧ください。
+
 ## ライセンス
 
 Copyright (C) 2025-2026 scr-malu
