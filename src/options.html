@@ -31,7 +31,8 @@
       font-size: 13px;
     }
     input[type="text"]:disabled, select:disabled { background: #f0f1f3; }
-    #custom-tab-controls { margin-left: 24px; display: flex; flex-direction: column; gap: 6px; }
+    #custom-tab-controls, #sub-tab-controls { margin-left: 24px; display: flex; flex-direction: column; gap: 6px; }
+    .sub-heading { margin-top: 16px; }
     select {
       padding: 6px 8px;
       border: 1px solid #c8ccd4;
@@ -83,6 +84,13 @@
         切り替えない（OneLogin標準のまま）
       </label>
       <p class="hint">一度ポータル画面を開くと、実際のタブ名がプルダウンの選択肢に表示されます。一覧にないタブ名は「その他（直接入力）」で入力できます。</p>
+
+      <h2 class="sub-heading">会社タブ内のサブタブ</h2>
+      <div id="sub-tab-controls">
+        <select id="sub-tab-select"></select>
+        <input type="text" id="sub-tab-name" placeholder="表示したいサブタブ名を入力">
+      </div>
+      <p class="hint">会社タブの中に複数のタブがある場合に、最初に表示するサブタブを指定できます。「指定しない」の場合は OneLogin のプロフィール設定（会社タブの初期値）に従います。選択肢は会社タブを一度開くと表示されます。</p>
     </section>
 
     <section>

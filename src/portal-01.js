@@ -1,15 +1,17 @@
 // OneLogin Portal Extender - コンテンツスクリプト
 // document_start で実行され、設定に応じて以下を行う:
 //   - 初期表示タブの自動切り替え(タブ名の自動検出 or 指定タブ名でマッチ)
+//   - 会社タブ内のサブタブの自動切り替え(任意)
 //   - 切り替え完了までページを隠すことによるチラつき防止
-//   - ピン留めしたアプリをページ上部のバーに表示
-//   - タブ名一覧のキャッシュ保存(オプション画面の入力候補用)
+//   - ピン留めしたアプリをタブの上のバーに表示
+//   - タブ名一覧のキャッシュ保存(オプション画面の選択肢用)
 
 const DEFAULTS = {
   tabMode: "company", // "company"(会社タブを自動検出) | "custom"(タブ名指定) | "off"(切り替えない)
   tabName: "",
+  subTabName: "", // 会社タブ内のサブタブ名。空なら OneLogin 側の初期値に従う
   domains: "", // 改行・カンマ区切りの対象ドメイン。空なら全ドメインで有効
-  pinnedApps: [], // { id, name, icon } の配列
+  pinnedApps: [], // { id, name, icon, url } の配列
 };
 
 // 「利用頻度の高いもの」「個人」系のタブは会社タブの自動検出から除外する
@@ -18,6 +20,11 @@ const SKIP_TAB_PATTERN = /利用頻度|frequent|個人|personal/i;
 // タブ切り替え先が見つからない場合でもページを隠しっぱなしにしないための保険
 const REVEAL_TIMEOUT_MS = 4000;
 
+// アプリタイルは a.app-cell。起動URLは /client/apps/select/{id} や
+// /client/otp_prompt/{id} 形式(旧形式の /launch/{id} も念のため対応)
+const TILE_SELECTOR =
+  'a.app-cell[href]:not([data-olpe-decorated]), a[href*="/launch/"]:not([data-olpe-decorated])';
+
 (async () => {
   const settings = await chrome.storage.sync.get(DEFAULTS);
 
@@ -25,10 +32,12 @@ const REVEAL_TIMEOUT_MS = 4000;
 
   let pinnedApps = Array.isArray(settings.pinnedApps) ? settings.pinnedApps : [];
   const wantsTabSwitch = settings.tabMode !== "off";
+  const wantsSubTab = wantsTabSwitch && settings.subTabName.trim() !== "";
   const guard = wantsTabSwitch ? installFlickerGuard() : null;
 
   let tabClicked = false;
-  let cachedLabelsJson = null;
+  let subTabClicked = false;
+  const labelCacheJson = {};
   let renderedBarJson = null;
 
   // オプション画面や別タブでのピン留め変更を即時反映する
@@ -45,33 +54,72 @@ const REVEAL_TIMEOUT_MS = 4000;
   onMutate();
 
   function onMutate() {
-    const tabs = Array.from(document.getElementsByClassName("tab-item-content"));
-    if (tabs.length > 0) {
-      cacheTabLabels(tabs);
+    // トップレベルのタブ
+    const tops = topTabs();
+    if (tops.length > 0) {
+      cacheLabels("tabLabels", tops);
       if (wantsTabSwitch && !tabClicked) {
-        const target = pickTab(tabs);
+        const target = pickTab(tops);
         if (target) {
           tabClicked = true;
+          target.click();
+          // サブタブ指定がある場合はサブタブのクリックまでガードを維持する
+          if (!wantsSubTab) guard?.release();
+        }
+      }
+    }
+
+    // 会社タブ内のサブタブ(top-switcher の外にある tab-item-content)
+    const subs = subTabs();
+    if (subs.length > 0) {
+      cacheLabels("subTabLabels", subs);
+      if (wantsSubTab && tabClicked && !subTabClicked) {
+        const target = findByLabel(subs, settings.subTabName);
+        if (target) {
+          subTabClicked = true;
           target.click();
           guard?.release();
         }
       }
     }
+
     decorateAppTiles();
     renderPinnedBar();
   }
 
-  // ---- 初期表示タブ ----
+  // ---- タブの取得 ----
+
+  function topTabs() {
+    const scoped = document.querySelectorAll(".top-switcher .tab-item-content");
+    if (scoped.length > 0) return Array.from(scoped);
+    // top-switcher クラスが無い(構造が変わった)場合は従来どおり全体から取得
+    return Array.from(document.getElementsByClassName("tab-item-content"));
+  }
+
+  function subTabs() {
+    if (!document.querySelector(".top-switcher")) return [];
+    return Array.from(document.getElementsByClassName("tab-item-content")).filter(
+      (t) => !t.closest(".top-switcher")
+    );
+  }
+
+  function labelOf(tab) {
+    return (tab.textContent || "").trim();
+  }
+
+  function findByLabel(tabs, name) {
+    const want = (name || "").trim();
+    if (!want) return null;
+    return (
+      tabs.find((t) => labelOf(t) === want) ||
+      tabs.find((t) => labelOf(t).includes(want)) ||
+      null
+    );
+  }
 
   function pickTab(tabs) {
-    const labelOf = (t) => (t.textContent || "").trim();
     if (settings.tabMode === "custom" && settings.tabName.trim()) {
-      const want = settings.tabName.trim();
-      return (
-        tabs.find((t) => labelOf(t) === want) ||
-        tabs.find((t) => labelOf(t).includes(want)) ||
-        null
-      );
+      return findByLabel(tabs, settings.tabName);
     }
     // 会社タブの自動検出: 「利用頻度」「個人」以外で最初のタブ
     const company = tabs.find((t) => {
@@ -83,12 +131,12 @@ const REVEAL_TIMEOUT_MS = 4000;
     return tabs.every((t) => !labelOf(t)) ? tabs[1] || null : null;
   }
 
-  function cacheTabLabels(tabs) {
-    const labels = tabs.map((t) => (t.textContent || "").trim()).filter(Boolean);
+  function cacheLabels(key, tabs) {
+    const labels = tabs.map(labelOf).filter(Boolean);
     const json = JSON.stringify(labels);
-    if (labels.length === 0 || json === cachedLabelsJson) return;
-    cachedLabelsJson = json;
-    chrome.storage.local.set({ tabLabels: labels });
+    if (labels.length === 0 || labelCacheJson[key] === json) return;
+    labelCacheJson[key] = json;
+    chrome.storage.local.set({ [key]: labels });
   }
 
   // ---- チラつき防止 ----
@@ -108,11 +156,6 @@ const REVEAL_TIMEOUT_MS = 4000;
   }
 
   // ---- アプリのピン留め ----
-
-  // アプリタイルは a.app-cell。起動URLは /client/apps/select/{id} や
-  // /client/otp_prompt/{id} 形式(旧形式の /launch/{id} も念のため対応)
-  const TILE_SELECTOR =
-    'a.app-cell[href]:not([data-olpe-decorated]), a[href*="/launch/"]:not([data-olpe-decorated])';
 
   function appInfoFromTile(tile) {
     const href = tile.href;
