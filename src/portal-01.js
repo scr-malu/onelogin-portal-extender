@@ -1,15 +1,15 @@
 // OneLogin Portal Extender - コンテンツスクリプト
 // document_start で実行され、設定に応じて以下を行う:
 //   - 初期表示タブの自動切り替え(タブ名の自動検出 or 指定タブ名でマッチ)
-//   - 会社タブ内のサブタブの自動切り替え(任意)
 //   - 切り替え完了までページを隠すことによるチラつき防止
 //   - ピン留めしたアプリをタブの上のバーに表示
 //   - タブ名一覧のキャッシュ保存(オプション画面の選択肢用)
+// なお、会社タブ内のどのサブタブが最初に表示されるかは OneLogin の
+// プロフィール設定(会社タブの初期値)に従う(本拡張機能では操作しない)
 
 const DEFAULTS = {
   tabMode: "company", // "company"(会社タブを自動検出) | "custom"(タブ名指定) | "off"(切り替えない)
   tabName: "",
-  subTabName: "", // 会社タブ内のサブタブ名。空なら OneLogin 側の初期値に従う
   domains: "", // 改行・カンマ区切りの対象ドメイン。空なら全ドメインで有効
   pinnedApps: [], // { id, name, icon, url } の配列
 };
@@ -32,12 +32,10 @@ const TILE_SELECTOR =
 
   let pinnedApps = Array.isArray(settings.pinnedApps) ? settings.pinnedApps : [];
   const wantsTabSwitch = settings.tabMode !== "off";
-  const wantsSubTab = wantsTabSwitch && settings.subTabName.trim() !== "";
   const guard = wantsTabSwitch ? installFlickerGuard() : null;
 
   let tabClicked = false;
-  let subTabClicked = false;
-  const labelCacheJson = {};
+  let cachedLabelsJson = null;
   let renderedBarJson = null;
 
   // オプション画面や別タブでのピン留め変更を即時反映する
@@ -54,53 +52,46 @@ const TILE_SELECTOR =
   onMutate();
 
   function onMutate() {
-    // トップレベルのタブ
-    const tops = topTabs();
-    if (tops.length > 0) {
-      cacheLabels("tabLabels", tops);
-      if (wantsTabSwitch && !tabClicked) {
-        const target = pickTab(tops);
-        if (target) {
-          tabClicked = true;
-          target.click();
-          // サブタブ指定がある場合はサブタブのクリックまでガードを維持する
-          if (!wantsSubTab) guard?.release();
+    // 各処理は独立しているため、どれかが想定外のDOMで失敗しても
+    // 他の処理(特にチラつき防止の解除)が止まらないようにする
+    try {
+      const tabs = topTabs();
+      if (tabs.length > 0) {
+        cacheTabLabels(tabs);
+        if (wantsTabSwitch && !tabClicked) {
+          const target = pickTab(tabs);
+          if (target) {
+            tabClicked = true;
+            target.click();
+            guard?.release();
+          }
         }
       }
+    } catch (e) {
+      guard?.release();
+      console.warn("OneLogin Portal Extender: タブ処理でエラー", e);
     }
-
-    // 会社タブ内のサブタブ(top-switcher の外にある tab-item-content)
-    const subs = subTabs();
-    if (subs.length > 0) {
-      cacheLabels("subTabLabels", subs);
-      if (wantsSubTab && tabClicked && !subTabClicked) {
-        const target = findByLabel(subs, settings.subTabName);
-        if (target) {
-          subTabClicked = true;
-          target.click();
-          guard?.release();
-        }
-      }
+    try {
+      decorateAppTiles();
+    } catch (e) {
+      console.warn("OneLogin Portal Extender: ピン留めボタン処理でエラー", e);
     }
-
-    decorateAppTiles();
-    renderPinnedBar();
+    try {
+      renderPinnedBar();
+    } catch (e) {
+      console.warn("OneLogin Portal Extender: ピン留めバー処理でエラー", e);
+    }
   }
 
   // ---- タブの取得 ----
 
+  // トップレベルのタブバー(.top-switcher)にスコープする。会社タブ内に
+  // サブタブがある場合、それらも tab-item-content クラスを持つ可能性があるため
   function topTabs() {
     const scoped = document.querySelectorAll(".top-switcher .tab-item-content");
     if (scoped.length > 0) return Array.from(scoped);
     // top-switcher クラスが無い(構造が変わった)場合は従来どおり全体から取得
     return Array.from(document.getElementsByClassName("tab-item-content"));
-  }
-
-  function subTabs() {
-    if (!document.querySelector(".top-switcher")) return [];
-    return Array.from(document.getElementsByClassName("tab-item-content")).filter(
-      (t) => !t.closest(".top-switcher")
-    );
   }
 
   function labelOf(tab) {
@@ -131,12 +122,12 @@ const TILE_SELECTOR =
     return tabs.every((t) => !labelOf(t)) ? tabs[1] || null : null;
   }
 
-  function cacheLabels(key, tabs) {
+  function cacheTabLabels(tabs) {
     const labels = tabs.map(labelOf).filter(Boolean);
     const json = JSON.stringify(labels);
-    if (labels.length === 0 || labelCacheJson[key] === json) return;
-    labelCacheJson[key] = json;
-    chrome.storage.local.set({ [key]: labels });
+    if (labels.length === 0 || json === cachedLabelsJson) return;
+    cachedLabelsJson = json;
+    chrome.storage.local.set({ tabLabels: labels });
   }
 
   // ---- チラつき防止 ----
@@ -217,9 +208,14 @@ const TILE_SELECTOR =
 
   function renderPinnedBar() {
     if (!document.body) return;
+    // 検索ボックスやタブの上(#apps-view-container の先頭)に配置する。
+    // ページ読み込み直後はコンテナが未生成のため一旦 body 直下に置き、
+    // コンテナが出現したら移動する(内容が同じでも配置チェックは毎回行う)。
+    // React の再描画で消されても MutationObserver 経由で再挿入される
+    const anchor = document.getElementById("apps-view-container") || document.body;
     let bar = document.getElementById("olpe-pinned-bar");
     const json = JSON.stringify(pinnedApps);
-    if (bar && json === renderedBarJson) return;
+    if (bar && bar.parentElement === anchor && json === renderedBarJson) return;
     renderedBarJson = json;
     if (pinnedApps.length === 0) {
       bar?.remove();
@@ -229,9 +225,6 @@ const TILE_SELECTOR =
       bar = document.createElement("div");
       bar.id = "olpe-pinned-bar";
     }
-    // 検索ボックスやタブの上(#apps-view-container の先頭)に配置する。
-    // React の再描画で消されても MutationObserver 経由で再挿入される
-    const anchor = document.getElementById("apps-view-container") || document.body;
     if (bar.parentElement !== anchor) {
       anchor.prepend(bar);
     }
