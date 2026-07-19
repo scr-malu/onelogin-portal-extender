@@ -20,6 +20,7 @@
   transition: opacity 0.15s ease;
 }
 
+a.app-cell:hover .olpe-star,
 a[href*="/launch/"]:hover .olpe-star,
 .olpe-star:focus-visible,
 .olpe-star.olpe-pinned {

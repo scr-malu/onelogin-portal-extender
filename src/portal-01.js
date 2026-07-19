@@ -109,20 +109,25 @@ const REVEAL_TIMEOUT_MS = 4000;
 
   // ---- アプリのピン留め ----
 
+  // アプリタイルは a.app-cell。起動URLは /client/apps/select/{id} や
+  // /client/otp_prompt/{id} 形式(旧形式の /launch/{id} も念のため対応)
+  const TILE_SELECTOR =
+    'a.app-cell[href]:not([data-olpe-decorated]), a[href*="/launch/"]:not([data-olpe-decorated])';
+
   function appInfoFromTile(tile) {
-    const match = /\/launch\/(\d+)/.exec(tile.getAttribute("href") || "");
-    if (!match) return null;
-    const img = tile.querySelector("img");
+    const href = tile.href;
+    if (!href) return null;
     const name =
-      (img && img.alt && img.alt.trim()) || (tile.textContent || "").trim();
+      tile.querySelector(".app-cell-appname")?.textContent.trim() ||
+      (tile.getAttribute("aria-label") || "").replace(/^Launch\s+/i, "").trim() ||
+      (tile.textContent || "").trim();
     if (!name) return null;
-    return { id: match[1], name, icon: (img && img.src) || "" };
+    const icon = tile.querySelector("img")?.src || "";
+    return { id: new URL(href).pathname, name, icon, url: href };
   }
 
   function decorateAppTiles() {
-    const tiles = document.querySelectorAll(
-      'a[href*="/launch/"]:not([data-olpe-decorated])'
-    );
+    const tiles = document.querySelectorAll(TILE_SELECTOR);
     for (const tile of tiles) {
       if (tile.closest("#olpe-pinned-bar")) continue;
       tile.dataset.olpeDecorated = "1";
@@ -180,7 +185,12 @@ const REVEAL_TIMEOUT_MS = 4000;
     if (!bar) {
       bar = document.createElement("div");
       bar.id = "olpe-pinned-bar";
-      document.body.prepend(bar);
+    }
+    // 検索ボックスやタブの上(#apps-view-container の先頭)に配置する。
+    // React の再描画で消されても MutationObserver 経由で再挿入される
+    const anchor = document.getElementById("apps-view-container") || document.body;
+    if (bar.parentElement !== anchor) {
+      anchor.prepend(bar);
     }
     const label = document.createElement("span");
     label.className = "olpe-pin-label";
@@ -190,9 +200,9 @@ const REVEAL_TIMEOUT_MS = 4000;
       ...pinnedApps.map((app) => {
         const link = document.createElement("a");
         link.className = "olpe-pin-app";
-        link.href = `${location.origin}/launch/${app.id}`;
+        link.href = app.url || `${location.origin}/launch/${app.id}`;
         link.target = "_blank";
-        link.rel = "noopener";
+        link.rel = "noopener noreferrer";
         if (app.icon) {
           const img = document.createElement("img");
           img.src = app.icon;

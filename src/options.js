@@ -7,27 +7,46 @@ const DEFAULTS = {
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const FREE_INPUT = "__free__";
+
   const form = document.getElementById("options-form");
   const status = document.getElementById("status");
+  const tabSelect = document.getElementById("tab-select");
   const tabNameInput = document.getElementById("tab-name");
-  const datalist = document.getElementById("tab-candidates");
   const pinnedList = document.getElementById("pinned-list");
   const pinnedEmpty = document.getElementById("pinned-empty");
 
-  // 保存済み設定をフォームに反映
   const settings = await chrome.storage.sync.get(DEFAULTS);
-  form.tabMode.value = settings.tabMode;
-  tabNameInput.value = settings.tabName;
-  form.domains.value = settings.domains;
-  syncTabNameState();
 
-  // ポータル閲覧時にキャッシュしたタブ名を入力候補として表示
+  // ポータル閲覧時にキャッシュしたタブ名でプルダウンを構築
   const { tabLabels = [] } = await chrome.storage.local.get("tabLabels");
-  for (const label of tabLabels) {
+  const candidates = [...tabLabels];
+  // 保存済みのタブ名がキャッシュに無い場合も選択肢として残す
+  if (settings.tabName && !candidates.includes(settings.tabName)) {
+    candidates.unshift(settings.tabName);
+  }
+  for (const label of candidates) {
     const option = document.createElement("option");
     option.value = label;
-    datalist.appendChild(option);
+    option.textContent = label;
+    tabSelect.appendChild(option);
   }
+  const freeOption = document.createElement("option");
+  freeOption.value = FREE_INPUT;
+  freeOption.textContent = "その他（直接入力）";
+  tabSelect.appendChild(freeOption);
+
+  // 保存済み設定をフォームに反映
+  form.tabMode.value = settings.tabMode;
+  form.domains.value = settings.domains;
+  if (settings.tabName && candidates.includes(settings.tabName)) {
+    tabSelect.value = settings.tabName;
+  } else {
+    // 未設定またはキャッシュ無し: 候補があれば先頭、なければ直接入力
+    tabSelect.value = candidates.length > 0 ? candidates[0] : FREE_INPUT;
+    tabNameInput.value = settings.tabName;
+  }
+  syncTabNameState();
 
   renderPinned(settings.pinnedApps);
 
@@ -35,9 +54,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    const tabName =
+      tabSelect.value === FREE_INPUT ? tabNameInput.value.trim() : tabSelect.value;
     await chrome.storage.sync.set({
       tabMode: form.tabMode.value,
-      tabName: tabNameInput.value.trim(),
+      tabName,
       domains: form.domains.value.trim(),
     });
     status.textContent = "設定を保存しました。";
@@ -45,7 +66,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   });
 
   function syncTabNameState() {
-    tabNameInput.disabled = form.tabMode.value !== "custom";
+    const customEnabled = form.tabMode.value === "custom";
+    tabSelect.disabled = !customEnabled;
+    tabNameInput.disabled = !customEnabled;
+    // 直接入力欄は「その他」を選んだときだけ表示する
+    tabNameInput.style.display =
+      tabSelect.value === FREE_INPUT ? "" : "none";
   }
 
   function renderPinned(apps) {

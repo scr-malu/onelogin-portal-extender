@@ -30,8 +30,15 @@
       border-radius: 4px;
       font-size: 13px;
     }
-    input[type="text"]:disabled { background: #f0f1f3; }
-    #tab-name { margin-left: 24px; width: calc(100% - 24px); }
+    input[type="text"]:disabled, select:disabled { background: #f0f1f3; }
+    #custom-tab-controls { margin-left: 24px; display: flex; flex-direction: column; gap: 6px; }
+    select {
+      padding: 6px 8px;
+      border: 1px solid #c8ccd4;
+      border-radius: 4px;
+      font-size: 13px;
+      background: #fff;
+    }
     textarea { height: 72px; resize: vertical; }
     button {
       padding: 6px 20px;
@@ -67,13 +74,15 @@
         <input type="radio" name="tabMode" value="custom">
         タブ名を指定する
       </label>
-      <input type="text" id="tab-name" list="tab-candidates" placeholder="表示したいタブ名を入力">
-      <datalist id="tab-candidates"></datalist>
+      <div id="custom-tab-controls">
+        <select id="tab-select"></select>
+        <input type="text" id="tab-name" placeholder="表示したいタブ名を入力">
+      </div>
       <label>
         <input type="radio" name="tabMode" value="off">
         切り替えない（OneLogin標準のまま）
       </label>
-      <p class="hint">一度ポータル画面を開くと、タブ名の入力候補が表示されるようになります。</p>
+      <p class="hint">一度ポータル画面を開くと、実際のタブ名がプルダウンの選択肢に表示されます。一覧にないタブ名は「その他（直接入力）」で入力できます。</p>
     </section>
 
     <section>
